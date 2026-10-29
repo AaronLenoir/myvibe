@@ -48,6 +48,9 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://api:8000
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      VIRTUAL_HOST: roster.aaronlenoir.com
+      LETSENCRYPT_HOST: roster.aaronlenoir.com
+      LETSENCRYPT_EMAIL: info@aaronlenoir.com
     ports:
       - "3000:3000"
     depends_on:
@@ -55,6 +58,7 @@ services:
         condition: service_started
     networks:
       - roster_network
+      - default
 
 volumes:
   postgres_data:
