@@ -3,6 +3,7 @@ FROM python:3.11-bookworm
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1
+ENV PIP_PROGRESS_BAR=off
 
 COPY requirements.txt .
 # Install packages one at a time to avoid threading issues
