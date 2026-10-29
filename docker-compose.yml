@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - roster_network
+      - aaronlenoir.com_default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U roster_user -d roster"]
       interval: 5s
@@ -35,13 +35,7 @@ services:
     depends_on:
       - db
     networks:
-      - roster_network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+      - aaronlenoir.com_default
 
   web:
     build:
@@ -61,12 +55,7 @@ services:
     depends_on:
       - api
     networks:
-      - roster_network
-      - default
+      - aaronlenoir.com_default
 
 volumes:
   postgres_data:
-
-networks:
-  roster_network:
-    driver: bridge
