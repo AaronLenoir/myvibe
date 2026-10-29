@@ -59,3 +59,7 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  aaronlenoircom_default:
+    external: true
