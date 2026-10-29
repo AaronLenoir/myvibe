@@ -2,12 +2,11 @@ FROM python:3.11-bookworm
 
 WORKDIR /app
 
-# Fix threading issues
 ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=off
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install without parallel processing to avoid threading issues
+RUN pip install --no-cache-dir --no-parallel -r requirements.txt
 
 COPY . .
 
