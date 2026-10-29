@@ -33,8 +33,7 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     networks:
       - roster_network
 
@@ -54,8 +53,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      api:
-        condition: service_started
+      - api
     networks:
       - roster_network
       - default
