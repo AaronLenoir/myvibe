@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: roster_db
+    environment:
+      POSTGRES_DB: roster
+      POSTGRES_USER: roster_user
+      POSTGRES_PASSWORD: roster_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - roster_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roster_user -d roster"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: roster_api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://roster_user:roster_password@db:5432/roster
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      JWT_SECRET: "super_secret_jwt_key_for_dev"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - roster_network
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: roster_web
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - roster_network
+
+volumes:
+  postgres_data:
+
+networks:
+  roster_network:
+    driver: bridge
