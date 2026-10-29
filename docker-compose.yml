@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - aaronlenoir.com_default
+      - aaronlenoircom_default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U roster_user -d roster"]
       interval: 5s
@@ -35,7 +35,7 @@ services:
     depends_on:
       - db
     networks:
-      - aaronlenoir.com_default
+      - aaronlenoircom_default
 
   web:
     build:
@@ -55,7 +55,7 @@ services:
     depends_on:
       - api
     networks:
-      - aaronlenoir.com_default
+      - aaronlenoircom_default
 
 volumes:
   postgres_data:
