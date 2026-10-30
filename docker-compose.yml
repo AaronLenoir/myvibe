@@ -25,11 +25,12 @@ services:
       context: ./api
       dockerfile: Dockerfile
     container_name: roster_api
+    env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://roster_user:roster_password@db:5432/roster
-      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
-      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET:-}"
-      JWT_SECRET: "super_secret_jwt_key_for_dev"
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
+      JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_for_dev}"
     ports:
       - "8000:8000"
     depends_on:
@@ -43,10 +44,11 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_GITHUB_CLIENT_ID: "${NEXT_PUBLIC_GITHUB_CLIENT_ID}"
     container_name: roster_web
+    env_file: .env
     environment:
       NEXT_PUBLIC_API_URL: http://api:8000
-      NEXT_PUBLIC_GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
       VIRTUAL_HOST: roster.aaronlenoir.com
       LETSENCRYPT_HOST: roster.aaronlenoir.com
       LETSENCRYPT_EMAIL: info@aaronlenoir.com
