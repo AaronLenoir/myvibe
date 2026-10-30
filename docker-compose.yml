@@ -27,10 +27,8 @@ services:
     container_name: roster_api
     environment:
       DATABASE_URL: postgresql+asyncpg://roster_user:roster_password@db:5432/roster
-      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
-      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
-      FACEBOOK_CLIENT_ID: "${FACEBOOK_CLIENT_ID:-}"
-      FACEBOOK_CLIENT_SECRET: "${FACEBOOK_CLIENT_SECRET:-}"
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET:-}"
       JWT_SECRET: "super_secret_jwt_key_for_dev"
     ports:
       - "8000:8000"
@@ -48,7 +46,7 @@ services:
     container_name: roster_web
     environment:
       NEXT_PUBLIC_API_URL: http://api:8000
-      NEXT_PUBLIC_GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      NEXT_PUBLIC_GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
       VIRTUAL_HOST: roster.aaronlenoir.com
       LETSENCRYPT_HOST: roster.aaronlenoir.com
       LETSENCRYPT_EMAIL: info@aaronlenoir.com

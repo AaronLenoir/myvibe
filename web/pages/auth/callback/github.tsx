@@ -1,22 +1,19 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 
-export default function FacebookCallback() {
+export default function GithubCallback() {
   const router = useRouter();
+  const { code, state } = router.query;
 
   useEffect(() => {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
-
-    if (accessToken) {
-      // Call our API to exchange Facebook token for our JWT
-      fetch('http://localhost:8000/auth/facebook', {
+    if (code) {
+      // Call our API to exchange GitHub code for JWT
+      fetch('http://localhost:8000/auth/github', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token: accessToken }),
+        body: JSON.stringify({ code: code as string }),
       })
         .then((res) => res.json())
         .then((data) => {
@@ -25,18 +22,18 @@ export default function FacebookCallback() {
           router.push('/dashboard');
         })
         .catch((error) => {
-          console.error('Facebook login failed:', error);
+          console.error('GitHub login failed:', error);
           router.push('/login?error=1');
         });
     } else {
       router.push('/login?error=1');
     }
-  }, [router]);
+  }, [code, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-      <p className="ml-4">Authenticating with Facebook...</p>
+      <p className="ml-4">Authenticating with GitHub...</p>
     </div>
   );
 }

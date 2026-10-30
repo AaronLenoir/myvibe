@@ -17,80 +17,44 @@ app.add_middleware(
 )
 
 JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID", "")
-FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET", "")
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
 
-@app.post("/auth/google")
-async def auth_google(token: str):
-    """Authenticate with Google OAuth token."""
+@app.post("/auth/github")
+async def auth_github(code: str):
+    """Authenticate with GitHub OAuth code."""
     try:
+        # Exchange code for access token
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://www.googleapis.com/oauth2/v3/userinfo",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            response.raise_for_status()
-            user_data = response.json()
-
-        user_id = str(uuid.uuid4())
-        access_token = jwt.encode(
-            {
-                "user_id": user_id,
-                "email": user_data.get("email"),
-                "name": user_data.get("name"),
-                "avatar_url": user_data.get("picture"),
-                "exp": datetime.utcnow() + timedelta(minutes=30)
-            },
-            JWT_SECRET,
-            algorithm="HS256"
-        )
-
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "id": user_id,
-                "email": user_data.get("email"),
-                "name": user_data.get("name"),
-                "avatar_url": user_data.get("picture")
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Google auth failed")
-
-
-@app.post("/auth/facebook")
-async def auth_facebook(token: str):
-    """Authenticate with Facebook OAuth token."""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://graph.facebook.com/v18.0/me",
+            token_response = await client.post(
+                "https://github.com/login/oauth/access_token",
                 params={
-                    "access_token": token,
-                    "fields": "id,email,name,picture.type(large)"
-                }
+                    "client_id": GITHUB_CLIENT_ID,
+                    "client_secret": GITHUB_CLIENT_SECRET,
+                    "code": code
+                },
+                headers={"Accept": "application/json"}
             )
-            response.raise_for_status()
-            user_data = response.json()
+            token_response.raise_for_status()
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
 
-        # Get picture URL
-        picture_url = None
-        if "picture" in user_data:
-            picture_data = user_data["picture"]
-            if "data" in picture_data and "url" in picture_data["data"]:
-                picture_url = picture_data["data"]["url"]
+            # Get user info
+            user_response = await client.get(
+                "https://api.github.com/user",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            user_response.raise_for_status()
+            user_data = user_response.json()
 
         user_id = str(uuid.uuid4())
-        access_token = jwt.encode(
+        jwt_token = jwt.encode(
             {
                 "user_id": user_id,
                 "email": user_data.get("email", ""),
-                "name": user_data.get("name", ""),
-                "avatar_url": picture_url,
+                "name": user_data.get("name", user_data.get("login", "")),
+                "avatar_url": user_data.get("avatar_url", ""),
                 "exp": datetime.utcnow() + timedelta(minutes=30)
             },
             JWT_SECRET,
@@ -98,17 +62,17 @@ async def auth_facebook(token: str):
         )
 
         return {
-            "access_token": access_token,
+            "access_token": jwt_token,
             "token_type": "bearer",
             "user": {
                 "id": user_id,
                 "email": user_data.get("email", ""),
-                "name": user_data.get("name", ""),
-                "avatar_url": picture_url
+                "name": user_data.get("name", user_data.get("login", "")),
+                "avatar_url": user_data.get("avatar_url", "")
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=401, detail="Facebook auth failed")
+        raise HTTPException(status_code=401, detail="GitHub auth failed")
 
 
 @app.get("/auth/me")
