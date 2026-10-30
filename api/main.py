@@ -19,6 +19,8 @@ app.add_middleware(
 JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID", "")
+FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET", "")
 
 
 @app.post("/auth/google")
@@ -58,6 +60,55 @@ async def auth_google(token: str):
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Google auth failed")
+
+
+@app.post("/auth/facebook")
+async def auth_facebook(token: str):
+    """Authenticate with Facebook OAuth token."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://graph.facebook.com/v18.0/me",
+                params={
+                    "access_token": token,
+                    "fields": "id,email,name,picture.type(large)"
+                }
+            )
+            response.raise_for_status()
+            user_data = response.json()
+
+        # Get picture URL
+        picture_url = None
+        if "picture" in user_data:
+            picture_data = user_data["picture"]
+            if "data" in picture_data and "url" in picture_data["data"]:
+                picture_url = picture_data["data"]["url"]
+
+        user_id = str(uuid.uuid4())
+        access_token = jwt.encode(
+            {
+                "user_id": user_id,
+                "email": user_data.get("email", ""),
+                "name": user_data.get("name", ""),
+                "avatar_url": picture_url,
+                "exp": datetime.utcnow() + timedelta(minutes=30)
+            },
+            JWT_SECRET,
+            algorithm="HS256"
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user_id,
+                "email": user_data.get("email", ""),
+                "name": user_data.get("name", ""),
+                "avatar_url": picture_url
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Facebook auth failed")
 
 
 @app.get("/auth/me")
