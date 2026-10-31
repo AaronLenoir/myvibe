@@ -44,6 +44,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_GITHUB_CLIENT_ID: "${NEXT_PUBLIC_GITHUB_CLIENT_ID}"
     container_name: roster_web
     env_file: .env
     environment:
