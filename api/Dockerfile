@@ -5,8 +5,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PIP_PROGRESS_BAR=off
 
-# Install build dependencies for asyncpg
-RUN apk add --no-cache gcc musl-dev libpq-dev postgresql-dev
+# Install build dependencies
+RUN apk add --no-cache --virtual .build-deps gcc musl-dev libpq-dev postgresql-dev
 
 COPY requirements.txt .
 # Install packages one at a time to avoid threading issues
@@ -18,6 +18,9 @@ RUN pip install --no-cache-dir fastapi==0.109.0 && \
     pip install --no-cache-dir passlib[bcrypt]==1.7.4 && \
     pip install --no-cache-dir httpx==0.26.0 && \
     pip install --no-cache-dir python-dateutil==2.8.2
+
+# Remove build dependencies to save space
+RUN apk del .build-deps
 
 COPY . .
 
