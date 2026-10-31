@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import httpx
 import os
 from datetime import datetime, timedelta
@@ -20,9 +21,11 @@ JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 
+class GitHubAuthRequest(BaseModel):
+    code: str
 
 @app.post("/auth/github")
-async def auth_github(code: str):
+async def auth_github(request: GitHubAuthRequest):
     """Authenticate with GitHub OAuth code."""
     try:
         # Exchange code for access token
@@ -32,7 +35,7 @@ async def auth_github(code: str):
                 params={
                     "client_id": GITHUB_CLIENT_ID,
                     "client_secret": GITHUB_CLIENT_SECRET,
-                    "code": code
+                    "code": request.code
                 },
                 headers={"Accept": "application/json"}
             )

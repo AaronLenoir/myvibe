@@ -3,19 +3,26 @@ import { useRouter } from 'next/router';
 
 export default function GithubCallback() {
   const router = useRouter();
-  const { code, state } = router.query;
+  const { code } = router.query;
 
   useEffect(() => {
     if (code) {
-      // Call our API to exchange GitHub code for JWT
-      fetch('http://localhost:8000/auth/github', {
+      // Use the environment variable for API URL
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+      fetch(`${apiUrl}/auth/github`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code: code as string }),
+        body: JSON.stringify({ code }),
       })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          return res.json();
+        })
         .then((data) => {
           localStorage.setItem('token', data.access_token);
           localStorage.setItem('user', JSON.stringify(data.user));
