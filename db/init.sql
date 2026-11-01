@@ -85,6 +85,41 @@ CREATE INDEX IF NOT EXISTS idx_org_admins_org ON organisation_admins(organisatio
 -- -- 3. Make them admin of Default Team
 -- -- 4. Add them as member of Default Team
 
+-- Shifts table (for defining different shift patterns)
+CREATE TABLE IF NOT EXISTS shifts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL,
+    short_name VARCHAR(20) NOT NULL,
+    description TEXT,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    color VARCHAR(20) DEFAULT '#4285F4',
+    shift_type VARCHAR(20) NOT NULL DEFAULT 'regular' CHECK (shift_type IN ('regular', 'training', 'meeting', 'one-off')),
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for shifts
+CREATE INDEX IF NOT EXISTS idx_shifts_name ON shifts(name);
+CREATE INDEX IF NOT EXISTS idx_shifts_team ON shifts(team_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_type ON shifts(shift_type);
+
+-- Trigger to update updated_at on changes
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_shifts_updated_at ON shifts;
+CREATE TRIGGER update_shifts_updated_at
+    BEFORE UPDATE ON shifts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Future: Subscription limits tables (for when you add paid plans)
 -- CREATE TABLE organisation_limits (
 --     organisation_id UUID PRIMARY KEY REFERENCES organisations(id) ON DELETE CASCADE,
