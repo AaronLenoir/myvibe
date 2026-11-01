@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timedelta
 from jose import jwt
 import uuid
+import asyncpg
 
 app = FastAPI(title="Roster API")
 
@@ -112,3 +113,29 @@ async def health():
 @app.get("/")
 async def root():
     return {"name": "Roster API", "version": "0.1.0"}
+
+
+@app.get("/test-db")
+async def test_db():
+    """Test database connection."""
+    try:
+        db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://roster_user:roster_password@db:5432/roster")
+        
+        # Connect to database
+        conn = await asyncpg.connect(db_url)
+        
+        # Test query
+        result = await conn.fetch("SELECT 1 as test_value")
+        await conn.close()
+        
+        return {
+            "status": "success",
+            "database": "connected",
+            "test_query": result[0]["test_value"]
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "database_url": db_url
+        }
