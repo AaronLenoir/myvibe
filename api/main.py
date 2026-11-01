@@ -61,8 +61,13 @@ async def github_auth(request: Request):
     return RedirectResponse(url=github_auth_url)
 
 @app.post("/auth/github")
-async def github_callback(code: str):
+async def github_callback(request: Request):
     try:
+        data = await request.json()
+        code = data.get("code")
+        if not code:
+            raise HTTPException(status_code=400, detail="Missing code parameter")
+        
         async with httpx.AsyncClient() as client:
             # Exchange code for access token
             response = await client.post(
