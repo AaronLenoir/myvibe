@@ -16,9 +16,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-
-    # For GitHub OAuth callback
-    expose_headers=["*"],
 )
 
 JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
@@ -105,21 +102,17 @@ async def get_me(request: Request):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-
-@app.get("/")
-async def root():
-    return {"name": "Roster API", "version": "0.1.0"}
-
-
 @app.get("/test-db")
 async def test_db():
     """Test database connection."""
     try:
-        db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://roster_user:roster_password@db:5432/roster")
+        db_url = os.getenv("DATABASE_URL", "")
+        
+        # Convert SQLAlchemy format to asyncpg format if needed
+        if db_url.startswith("postgresql+asyncpg://"):
+            db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+        elif db_url.startswith("postgresql+psycopg2://"):
+            db_url = db_url.replace("postgresql+psycopg2://", "postgresql://")
         
         # Connect to database
         conn = await asyncpg.connect(db_url)
@@ -139,3 +132,8 @@ async def test_db():
             "error": str(e),
             "database_url": db_url
         }
+
+
+@app.get("/")
+async def root():
+    return {"name": "Roster API", "version": "0.1.0"}
