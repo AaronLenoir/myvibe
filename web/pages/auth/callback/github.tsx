@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import axios from 'axios'
 
 export default function GitHubCallback() {
   const router = useRouter()
@@ -16,10 +15,15 @@ export default function GitHubCallback() {
       if (code && typeof code === 'string') {
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-          const response = await axios.post(`${apiUrl}/auth/github`, { code })
+          const response = await fetch(`${apiUrl}/auth/github`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code })
+          })
           
-          if (response.data.token) {
-            localStorage.setItem('token', response.data.token)
+          const data = await response.json()
+          if (data.token) {
+            localStorage.setItem('token', data.token)
             router.push('/dashboard')
           } else {
             router.push('/login?error=1')

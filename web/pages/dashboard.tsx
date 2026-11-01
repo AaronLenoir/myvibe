@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import axios from 'axios'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -16,10 +15,11 @@ export default function Dashboard() {
 
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-        const response = await axios.get(`${apiUrl}/auth/me`, {
+        const response = await fetch(`${apiUrl}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         })
-        setUser(response.data)
+        const data = await response.json()
+        setUser(data)
       } catch (err) {
         console.error('Failed to fetch user:', err)
         router.push('/login')
