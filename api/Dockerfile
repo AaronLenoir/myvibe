@@ -2,22 +2,21 @@ FROM python:3.11-alpine
 
 WORKDIR /app
 
-ENV PYTHONUNBUFFERED=1
-ENV PIP_PROGRESS_BAR=off
-
 # Install build dependencies
-RUN apk add --no-cache --virtual .build-deps gcc musl-dev libpq-dev postgresql-dev
+RUN apk add --no-cache gcc musl-dev libpq-dev postgresql-dev
 
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Remove build dependencies to save space
-RUN apk del .build-deps
+# Remove build dependencies
+RUN apk del gcc musl-dev libpq-dev postgresql-dev
 
+# Copy application code
 COPY . .
 
-RUN adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /app
-USER appuser
+EXPOSE 8000
 
-CMD ["alembic", "upgrade", "head", "&", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PYTHONUNBUFFERED=1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

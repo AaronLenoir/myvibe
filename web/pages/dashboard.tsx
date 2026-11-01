@@ -1,53 +1,46 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
+import axios from 'axios'
 
 export default function Dashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<{name: string, email: string, avatar_url?: string} | null>(null);
+  const router = useRouter()
+  const [user, setUser] = useState<{name: string, email: string, avatar: string} | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-      return;
+    const fetchUser = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/login')
+        return
+      }
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const response = await axios.get(`${apiUrl}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        setUser(response.data)
+      } catch (err) {
+        console.error('Failed to fetch user:', err)
+        router.push('/login')
+      }
     }
 
-    // Fetch user info from API
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    fetch(`${apiUrl}/auth/me`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Not authenticated');
-        }
-        return res.json();
-      })
-      .then(data => setUser(data))
-      .catch(() => {
-        localStorage.removeItem('token');
-        router.push('/login');
-      });
-  }, [router]);
+    fetchUser()
+  }, [router])
+
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  }
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome to Roster</p>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <p className="text-lg">Welcome to Roster App!</p>
         </div>
-        {user && (
-          <button
-            onClick={() => router.push('/profile')}
-            className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            {user.name}
-          </button>
-        )}
       </div>
     </div>
-  );
+  )
 }

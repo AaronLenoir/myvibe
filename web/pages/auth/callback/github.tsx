@@ -1,46 +1,46 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useEffect } from 'react'
+import { useRouter } from 'next/router'
+import axios from 'axios'
 
-export default function GithubCallback() {
-  const router = useRouter();
-  const { code } = router.query;
+export default function GitHubCallback() {
+  const router = useRouter()
+  const { code, error } = router.query
 
   useEffect(() => {
-    if (code) {
-      // Use the environment variable for API URL
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const fetchToken = async () => {
+      if (error) {
+        router.push('/login?error=1')
+        return
+      }
 
-      fetch(`${apiUrl}/auth/github`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
+      if (code && typeof code === 'string') {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+          const response = await axios.post(`${apiUrl}/auth/github`, { code })
+          
+          if (response.data.token) {
+            localStorage.setItem('token', response.data.token)
+            router.push('/dashboard')
+          } else {
+            router.push('/login?error=1')
           }
-          return res.json();
-        })
-        .then((data) => {
-          localStorage.setItem('token', data.access_token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          router.push('/dashboard');
-        })
-        .catch((error) => {
-          console.error('GitHub login failed:', error);
-          router.push('/login?error=1');
-        });
-    } else {
-      router.push('/login?error=1');
+        } catch (err) {
+          console.error('GitHub OAuth error:', err)
+          router.push('/login?error=1')
+        }
+      }
     }
-  }, [code, router]);
+
+    if (router.isReady) {
+      fetchToken()
+    }
+  }, [code, error, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-      <p className="ml-4">Authenticating with GitHub...</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <p>Authenticating with GitHub...</p>
+      </div>
     </div>
-  );
+  )
 }

@@ -1,139 +1,130 @@
-from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import httpx
 import os
-from datetime import datetime, timedelta
-from jose import jwt
+from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import RedirectResponse
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+import httpx
 import uuid
-import asyncpg
+import datetime
 
-app = FastAPI(title="Roster API")
+app = FastAPI()
 
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://web:3000", "https://roster.aaronlenoir.com", "https://api.roster.aaronlenoir.com"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://roster.aaronlenoir.com",
+        "https://api.roster.aaronlenoir.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
+# Configuration
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-class GitHubAuthRequest(BaseModel):
-    code: str
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Database connection string
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://roster_user:roster_password@db:5432/roster")
+
+# Health check endpoint
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+# Test database connection
+@app.get("/test-db")
+async def test_db():
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"))
+        await conn.close()
+        return {"status": "db_connected", "database_url": DATABASE_URL}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "database_url": DATABASE_URL}
+
+# GitHub OAuth
+@app.get("/auth/github")
+async def github_auth(request: Request):
+    github_auth_url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri=https://roster.aaronlenoir.com/auth/callback/github&scope=user:email"
+    return RedirectResponse(url=github_auth_url)
 
 @app.post("/auth/github")
-async def auth_github(request: GitHubAuthRequest):
-    """Authenticate with GitHub OAuth code."""
+async def github_callback(code: str):
     try:
-        # Exchange code for access token
         async with httpx.AsyncClient() as client:
-            token_response = await client.post(
+            # Exchange code for access token
+            response = await client.post(
                 "https://github.com/login/oauth/access_token",
-                params={
+                data={
                     "client_id": GITHUB_CLIENT_ID,
                     "client_secret": GITHUB_CLIENT_SECRET,
-                    "code": request.code
+                    "code": code
                 },
                 headers={"Accept": "application/json"}
             )
-            token_response.raise_for_status()
-            token_data = token_response.json()
-            access_token = token_data.get("access_token")
-
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to get access token")
+            
+            data = response.json()
+            access_token = data.get("access_token")
+            
+            if not access_token:
+                raise HTTPException(status_code=400, detail="No access token received")
+            
             # Get user info
             user_response = await client.get(
                 "https://api.github.com/user",
                 headers={"Authorization": f"Bearer {access_token}"}
             )
-            user_response.raise_for_status()
+            
+            if user_response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to get user info")
+            
             user_data = user_response.json()
-
-        user_id = str(uuid.uuid4())
-        jwt_token = jwt.encode(
-            {
-                "user_id": user_id,
+            
+            # Create JWT token
+            token_data = {
+                "sub": str(user_data.get("id")),
+                "name": user_data.get("name", user_data.get("login")),
                 "email": user_data.get("email", ""),
-                "name": user_data.get("name", user_data.get("login", "")),
-                "avatar_url": user_data.get("avatar_url", ""),
-                "exp": datetime.utcnow() + timedelta(minutes=30)
-            },
-            JWT_SECRET,
-            algorithm="HS256"
-        )
-
-        return {
-            "access_token": jwt_token,
-            "token_type": "bearer",
-            "user": {
-                "id": user_id,
-                "email": user_data.get("email", ""),
-                "name": user_data.get("name", user_data.get("login", "")),
-                "avatar_url": user_data.get("avatar_url", "")
+                "avatar": user_data.get("avatar_url", ""),
+                "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             }
-        }
+            
+            token = jwt.encode(token_data, JWT_SECRET, algorithm=ALGORITHM)
+            
+            return {"token": token, "token_type": "bearer"}
+    
     except Exception as e:
-        raise HTTPException(status_code=401, detail="GitHub auth failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
-
+# Get current user
 @app.get("/auth/me")
-async def get_me(request: Request):
-    """Get current user from JWT."""
-    token = request.headers.get("Authorization")
-    if not token or not token.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        payload = jwt.decode(
-            token.split(" ")[1],
-            JWT_SECRET,
-            algorithms=["HS256"]
-        )
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         return {
-            "id": payload.get("user_id"),
-            "email": payload.get("email"),
+            "id": payload.get("sub"),
             "name": payload.get("name"),
-            "avatar_url": payload.get("avatar_url")
+            "email": payload.get("email"),
+            "avatar": payload.get("avatar")
         }
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-@app.get("/test-db")
-async def test_db():
-    """Test database connection."""
-    try:
-        db_url = os.getenv("DATABASE_URL", "")
-        
-        # Convert SQLAlchemy format to asyncpg format if needed
-        if db_url.startswith("postgresql+asyncpg://"):
-            db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
-        elif db_url.startswith("postgresql+psycopg2://"):
-            db_url = db_url.replace("postgresql+psycopg2://", "postgresql://")
-        
-        # Connect to database
-        conn = await asyncpg.connect(db_url)
-        
-        # Test query
-        result = await conn.fetch("SELECT 1 as test_value")
-        await conn.close()
-        
-        return {
-            "status": "success",
-            "database": "connected",
-            "test_query": result[0]["test_value"]
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "database_url": db_url
-        }
-
-
-@app.get("/")
-async def root():
-    return {"name": "Roster API", "version": "0.1.0"}
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

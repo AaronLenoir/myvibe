@@ -1,69 +1,67 @@
 version: '3.3'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: roster_db
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: roster_web
     environment:
-      POSTGRES_DB: roster
-      POSTGRES_USER: roster_user
-      POSTGRES_PASSWORD: roster_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_GITHUB_CLIENT_ID=${NEXT_PUBLIC_GITHUB_CLIENT_ID}
+      - VIRTUAL_HOST=roster.aaronlenoir.com
+      - LETSENCRYPT_HOST=roster.aaronlenoir.com
+      - LETSENCRYPT_EMAIL=info@aaronlenoir.com
     ports:
-      - "5432:5432"
+      - "3000:3000"
     networks:
       - aaronlenoircom_default
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U roster_user -d roster"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    restart: unless-stopped
 
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
     container_name: roster_api
-    env_file: .env
     environment:
-      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
-      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
-      JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_for_dev}"
-      VIRTUAL_HOST: api.roster.aaronlenoir.com
-      LETSENCRYPT_HOST: api.roster.aaronlenoir.com
-      LETSENCRYPT_EMAIL: info@aaronlenoir.com
+      - DATABASE_URL=postgresql://roster_user:roster_password@db:5432/roster
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_for_dev}
+      - VIRTUAL_HOST=api.roster.aaronlenoir.com
+      - LETSENCRYPT_HOST=api.roster.aaronlenoir.com
+      - LETSENCRYPT_EMAIL=info@aaronlenoir.com
     ports:
       - "8000:8000"
     depends_on:
       - db
     networks:
       - aaronlenoircom_default
+    restart: unless-stopped
 
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: https://api.roster.aaronlenoir.com
-        NEXT_PUBLIC_GITHUB_CLIENT_ID: "${NEXT_PUBLIC_GITHUB_CLIENT_ID}"
-    container_name: roster_web
-    env_file: .env
+  db:
+    image: postgres:15-alpine
+    container_name: roster_db
     environment:
-      NEXT_PUBLIC_API_URL: https://api.roster.aaronlenoir.com
-      VIRTUAL_HOST: roster.aaronlenoir.com
-      LETSENCRYPT_HOST: roster.aaronlenoir.com
-      LETSENCRYPT_EMAIL: info@aaronlenoir.com
+      - POSTGRES_USER=roster_user
+      - POSTGRES_PASSWORD=roster_password
+      - POSTGRES_DB=roster
+    volumes:
+      - pg_data:/var/lib/postgresql/data
     ports:
-      - "3000:3000"
-    depends_on:
-      - api
+      - "5432:5432"
     networks:
       - aaronlenoircom_default
-
-volumes:
-  postgres_data:
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roster_user -d roster"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 networks:
   aaronlenoircom_default:
     external: true
+
+volumes:
+  pg_data:
