@@ -11,10 +11,13 @@ app = FastAPI(title="Roster API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://web:3000"],
+    allow_origins=["http://localhost:3000", "http://web:3000", "https://roster.aaronlenoir.com", "https://api.roster.aaronlenoir.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+
+    # For GitHub OAuth callback
+    expose_headers=["*"],
 )
 
 JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_for_dev")
